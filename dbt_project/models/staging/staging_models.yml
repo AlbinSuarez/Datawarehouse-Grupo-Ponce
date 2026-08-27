@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: stg_gp_rm00101_customers
+    description: "Capa staging limpia y normalizada de clientes de Dynamics GP"
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+          - unique
+      - name: customer_name
+        tests:
+          - not_null
+
+  - name: stg_gp_sop30200_sales_headers
+    description: "Capa staging limpia de encabezados históricos de ventas de Dynamics GP"
+    columns:
+      - name: invoice_number
+        tests:
+          - not_null
+      - name: sop_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6]
+
+  - name: stg_gp_sop30300_sales_lines
+    description: "Capa staging limpia de líneas de venta históricas de Dynamics GP"
+    columns:
+      - name: invoice_number
+        tests:
+          - not_null
+      - name: line_item_sequence
+        tests:
+          - not_null
+
+  - name: stg_gp_iv00101_items
+    description: "Capa staging de catálogo de artículos de Dynamics GP"
+    columns:
+      - name: item_number
+        tests:
+          - not_null
+          - unique

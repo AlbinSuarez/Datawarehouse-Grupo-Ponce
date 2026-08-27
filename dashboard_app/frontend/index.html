@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grupo Ponce - Data Warehouse Empresarial</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- ApexCharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100">
+
+    <!-- BARRA SUPERIOR (HEADER) -->
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-30 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center shadow-md shadow-sky-500/20">
+                <i data-lucide="bar-chart-3" class="w-6 h-6 text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    Grupo Ponce <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">Enterprise Data Marts</span>
+                </h1>
+                <p class="text-xs text-slate-400">Dashboard Dinámico: Ventas, Clientes, Inventarios & Cobranzas (Dynamics GP en <span id="lblServer" class="text-emerald-400 font-mono">localhost</span>)</p>
+            </div>
+        </div>
+
+        <!-- NAVEGACIÓN DE TABS -->
+        <nav class="flex space-x-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 flex-wrap">
+            <button onclick="switchTab('ventas')" id="tab-ventas" class="tab-btn px-3.5 py-2 text-xs font-semibold rounded-lg bg-sky-600 text-white shadow-sm flex items-center gap-1.5 transition-all">
+                <i data-lucide="trending-up" class="w-4 h-4"></i> Ventas & Margen
+            </button>
+            <button onclick="switchTab('churn')" id="tab-churn" class="tab-btn px-3.5 py-2 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center gap-1.5 transition-all">
+                <i data-lucide="user-minus" class="w-4 h-4"></i> Churn & Retención
+            </button>
+            <button onclick="switchTab('ltv')" id="tab-ltv" class="tab-btn px-3.5 py-2 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center gap-1.5 transition-all">
+                <i data-lucide="gem" class="w-4 h-4"></i> LTV & RFM
+            </button>
+            <button onclick="switchTab('clientes')" id="tab-clientes" class="tab-btn px-3.5 py-2 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center gap-1.5 transition-all">
+                <i data-lucide="users" class="w-4 h-4"></i> Ficha 360° Clientes
+            </button>
+            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn px-3.5 py-2 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center gap-1.5 transition-all">
+                <i data-lucide="boxes" class="w-4 h-4"></i> Inventarios & Stock
+            </button>
+            <button onclick="switchTab('ar')" id="tab-ar" class="tab-btn px-3.5 py-2 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center gap-1.5 transition-all">
+                <i data-lucide="credit-card" class="w-4 h-4"></i> Cuentas por Cobrar & DSO
+            </button>
+        </nav>
+    </header>
+
+    <!-- BARRA DE FILTROS GLOBALES -->
+    <section class="bg-slate-900/60 border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4 text-xs">
+        <div id="salesFilterGroup" class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-2">
+                <span class="text-slate-400 font-medium">Zona / Territorio:</span>
+                <select id="filterTerritory" onchange="onTerritoryChange()" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-sky-500">
+                    <option value="ALL">Todas las Zonas / Territorios</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <span class="text-slate-400 font-medium">Clase Cliente:</span>
+                <select id="filterClass" onchange="refreshAllData()" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-sky-500">
+                    <option value="ALL">Todas las Clases</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <span class="text-slate-400 font-medium">Vendedor:</span>
+                <select id="filterSalesperson" onchange="refreshAllData()" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-sky-500">
+                    <option value="ALL">Todos los Vendedores</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="invFilterGroup" class="hidden flex items-center gap-3">
+            <div class="flex items-center gap-2">
+                <span class="text-slate-400 font-medium">Clase de SKU:</span>
+                <select id="filterSkuType" onchange="fetchInventoryData()" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:outline-none focus:border-sky-500 font-semibold">
+                    <option value="ALL">Todos los Tipos de SKU (MP, ME, PT)</option>
+                    <option value="PT">📦 PT - Producto Terminado</option>
+                    <option value="MP">🧪 MP - Materia Prima</option>
+                    <option value="ME">📦 ME - Material de Empaque</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="ml-auto flex items-center gap-3">
+            <div class="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl shadow-inner">
+                <i data-lucide="coins" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span class="text-xs text-slate-400">Tasa del Día:</span>
+                <span id="lblRate" class="font-mono font-bold text-amber-400">372.11 Bs/USD</span>
+                <span id="lblRateDate" class="text-[10px] text-slate-400 font-mono">(03/02/2026 • USD-VENTAS)</span>
+            </div>
+            <button onclick="triggerDatabaseReload()" id="btnRefreshData" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 border border-sky-500 rounded-lg text-white font-medium flex items-center gap-1.5 transition-colors shadow-sm">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar BD
+            </button>
+        </div>
+    </section>
+
+    <!-- CONTENEDOR PRINCIPAL DE CONTENIDO -->
+    <main class="flex-1 p-6 overflow-y-auto space-y-6">
+
+        <!-- ========================================================================= -->
+        <!-- TAB 1: VENTAS & MARGEN -->
+        <!-- ========================================================================= -->
+        <div id="view-ventas" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ventas Netas ($ USD)</span>
+                        <div class="p-2 rounded-xl bg-sky-500/10 text-sky-400"><i data-lucide="dollar-sign" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiNetSales" class="text-2xl font-black text-white tracking-tight">$0.00</h2>
+                        <p class="text-xs text-slate-400 mt-1">Facturación total neta convertida a USD</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Margen Bruto</span>
+                        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400"><i data-lucide="pie-chart" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiGrossMargin" class="text-2xl font-black text-emerald-400 tracking-tight">0.00%</h2>
+                        <p id="kpiGrossProfitVal" class="text-xs text-slate-400 mt-1">$0.00 Utilidad Bruta</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tasa de Churn (90d)</span>
+                        <div class="p-2 rounded-xl bg-rose-500/10 text-rose-400"><i data-lucide="user-x" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiChurnRate" class="text-2xl font-black text-rose-400 tracking-tight">0.00%</h2>
+                        <p id="kpiChurnCount" class="text-xs text-slate-400 mt-1">0 Clientes Inactivos</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">LTV Promedio (Gross Profit)</span>
+                        <div class="p-2 rounded-xl bg-amber-500/10 text-amber-400"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiAvgLtv" class="text-2xl font-black text-amber-400 tracking-tight">$0.00</h2>
+                        <p id="kpiTotalCustScope" class="text-xs text-slate-400 mt-1">Base de Clientes</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2 mb-4">
+                        <i data-lucide="activity" class="w-4 h-4 text-sky-400"></i> Tendencia Mensual de Ventas y Margen ($ USD)
+                    </h3>
+                    <div id="chartSalesTrend" class="w-full"></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2 mb-4">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-emerald-400"></i> Ventas por Zona / Territorio
+                    </h3>
+                    <div id="chartTerritorySales" class="w-full flex items-center justify-center"></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="tags" class="w-4 h-4 text-indigo-400"></i> Ventas por Categoría de Producto
+                </h3>
+                <div id="chartCategorySales" class="w-full"></div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 2: CHURN & RETENCIÓN -->
+        <!-- ========================================================================= -->
+        <div id="view-churn" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="trending-down" class="w-4 h-4 text-rose-400"></i> Evolución Mensual de Tasa de Churn (%)
+                    </h3>
+                    <div id="chartChurnRateTrend" class="w-full"></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="users" class="w-4 h-4 text-sky-400"></i> Volumen: Clientes Activos vs Desactivados
+                    </h3>
+                    <div id="chartActiveVsChurned" class="w-full"></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                    <i data-lucide="grid" class="w-4 h-4 text-amber-400"></i> Matriz de Cohortes de Retención Mensual (%)
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-400 bg-slate-950/40">
+                                <th class="p-3">Cohorte (Mes)</th>
+                                <th class="p-3">Clientes Nuevos</th>
+                                <th class="p-3 text-center">Mes 0</th>
+                                <th class="p-3 text-center">Mes +1</th>
+                                <th class="p-3 text-center">Mes +2</th>
+                                <th class="p-3 text-center">Mes +3</th>
+                                <th class="p-3 text-center">Mes +4</th>
+                                <th class="p-3 text-center">Mes +5</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cohortTableBody" class="divide-y divide-slate-800/60 font-mono"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 3: LTV & SEGMENTACIÓN RFM -->
+        <!-- ========================================================================= -->
+        <div id="view-ltv" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-400"></i> Distribución de Segmentos RFM
+                    </h3>
+                    <div id="chartRfmSegments" class="w-full flex items-center justify-center"></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="award" class="w-4 h-4 text-amber-400"></i> Top 10 Clientes por LTV (Utilidad Bruta $)
+                    </h3>
+                    <div id="chartTopLtv" class="w-full"></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="layers" class="w-4 h-4 text-indigo-400"></i> Rendimiento por Segmento RFM
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-400 bg-slate-950/40">
+                                <th class="p-3">Segmento</th>
+                                <th class="p-3 text-center">N° Clientes</th>
+                                <th class="p-3 text-right">Recencia Prom.</th>
+                                <th class="p-3 text-right">Ventas Totales ($)</th>
+                                <th class="p-3 text-right">LTV Promedio ($)</th>
+                                <th class="p-3 text-center">Acción Comercial Recomendada</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rfmTableBody" class="divide-y divide-slate-800/60"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 4: FICHA 360° CLIENTES -->
+        <!-- ========================================================================= -->
+        <div id="view-clientes" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i data-lucide="users" class="w-4 h-4 text-sky-400"></i> Directorio y Ficha 360° de Clientes
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Explora el historial transaccional, LTV y segmentación de cada cliente</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="text" id="custSearchInput" oninput="filterCustomerTable()" placeholder="Buscar cliente por código, nombre, zona..." class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500 w-72">
+                        <button onclick="exportCustomersCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-400 bg-slate-950/40">
+                                <th class="p-3">Código</th>
+                                <th class="p-3">Nombre del Cliente</th>
+                                <th class="p-3">Clase</th>
+                                <th class="p-3">Zona / Territorio</th>
+                                <th class="p-3 text-center">Segmento RFM</th>
+                                <th class="p-3 text-right">Pedidos</th>
+                                <th class="p-3 text-right">Ventas ($ USD)</th>
+                                <th class="p-3 text-right">LTV ($ USD)</th>
+                                <th class="p-3 text-right">Recencia</th>
+                                <th class="p-3 text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customerTableBody" class="divide-y divide-slate-800/60"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 5: INVENTARIOS & STOCK -->
+        <!-- ========================================================================= -->
+        <div id="view-inventory" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Valor Total Inventario ($ USD)</span>
+                        <div class="p-2 rounded-xl bg-sky-500/10 text-sky-400"><i data-lucide="package-check" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiInvValuation" class="text-2xl font-black text-white tracking-tight">$0.00</h2>
+                        <p id="kpiInvUnits" class="text-xs text-slate-400 mt-1">0 Unidades Físicas</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Rotación (Turnover)</span>
+                        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400"><i data-lucide="repeat" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiInvTurnover" class="text-2xl font-black text-emerald-400 tracking-tight">0.00x</h2>
+                        <p id="kpiInvCogs" class="text-xs text-slate-400 mt-1">$0.00 Costo Anualizado (COGS)</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Días de Inventario (DIO)</span>
+                        <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400"><i data-lucide="calendar" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiInvDio" class="text-2xl font-black text-indigo-400 tracking-tight">0.0 días</h2>
+                        <p class="text-xs text-slate-400 mt-1">Cobertura promedio sin reposición</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Quiebres de Stock (Stockouts)</span>
+                        <div class="p-2 rounded-xl bg-rose-500/10 text-rose-400"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiInvStockouts" class="text-2xl font-black text-rose-400 tracking-tight">0</h2>
+                        <p id="kpiInvAtRisk" class="text-xs text-amber-400 mt-1">0 Artículos en Riesgo Crítico</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="warehouse" class="w-4 h-4 text-sky-400"></i> Valoración por Almacén
+                    </h3>
+                    <div id="chartInvLocation" class="w-full flex items-center justify-center"></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-amber-400"></i> Semáforo de Salud de Stock
+                    </h3>
+                    <div id="chartInvHealth" class="w-full flex items-center justify-center"></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="tags" class="w-4 h-4 text-emerald-400"></i> Valoración por Categoría ($ USD)
+                    </h3>
+                    <div id="chartInvCategory" class="w-full"></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i data-lucide="boxes" class="w-4 h-4 text-sky-400"></i> Directorio de Artículos de Inventario & Stock
+                        </h3>
+                    </div>
+
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <select id="filterInvHealth" onchange="filterInventoryTable()" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500">
+                            <option value="ALL">Todos los Estados</option>
+                            <option value="Quiebre de Stock (Stockout)">🔴 Quiebre (Stockout)</option>
+                            <option value="Riesgo Crítico">🟡 Riesgo Crítico</option>
+                            <option value="Nivel Óptimo">🟢 Nivel Óptimo</option>
+                            <option value="Sobreinventario">🔵 Sobreinventario</option>
+                        </select>
+
+                        <input type="text" id="invSearchInput" oninput="filterInventoryTable()" placeholder="Buscar artículo..." class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500 w-64">
+                        
+                        <button onclick="exportInventoryCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-400 bg-slate-950/40">
+                                <th class="p-3">Código</th>
+                                <th class="p-3">Descripción</th>
+                                <th class="p-3">Clase / Categoría</th>
+                                <th class="p-3 text-right">Físico</th>
+                                <th class="p-3 text-right">Comprom.</th>
+                                <th class="p-3 text-right">Disponible</th>
+                                <th class="p-3 text-right">En Tránsito</th>
+                                <th class="p-3 text-right">Costo USD</th>
+                                <th class="p-3 text-right">Valoración USD</th>
+                                <th class="p-3 text-right">DIO (Días)</th>
+                                <th class="p-3 text-center">Estado Salud</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody" class="divide-y divide-slate-800/60 font-mono"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 6: CUENTAS POR COBRAR & CRÉDITO (NUEVO) -->
+        <!-- ========================================================================= -->
+        <div id="view-ar" class="tab-content hidden space-y-6">
+            <!-- KPIS CARDS AR -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cartera Total por Cobrar</span>
+                        <div class="p-2 rounded-xl bg-sky-500/10 text-sky-400"><i data-lucide="wallet" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiArTotal" class="text-2xl font-black text-white tracking-tight">$0.00</h2>
+                        <p id="kpiArDocsCount" class="text-xs text-slate-400 mt-1">0 Documentos Abiertos</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Días de Cobro (DSO)</span>
+                        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400"><i data-lucide="clock" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiArDso" class="text-2xl font-black text-emerald-400 tracking-tight">0.0 días</h2>
+                        <p id="kpiArSales90d" class="text-xs text-slate-400 mt-1">$0.00 Ventas 90d</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cartera Vencida (>0 Días)</span>
+                        <div class="p-2 rounded-xl bg-rose-500/10 text-rose-400"><i data-lucide="alert-circle" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiArOverdue" class="text-2xl font-black text-rose-400 tracking-tight">$0.00</h2>
+                        <p id="kpiArDelinquencyRate" class="text-xs text-rose-400 mt-1 font-semibold">0.0% Índice de Morosidad</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cartera Corriente (Al Día)</span>
+                        <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400"><i data-lucide="check-circle" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="kpiArCurrent" class="text-2xl font-black text-indigo-400 tracking-tight">$0.00</h2>
+                        <p id="kpiArCustCount" class="text-xs text-slate-400 mt-1">0 Clientes con Saldo</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRAFICAS AR -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="hourglass" class="w-4 h-4 text-amber-400"></i> Aging Report (Antigüedad de Saldos)
+                    </h3>
+                    <div id="chartArAging" class="w-full"></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-sky-400"></i> Cartera por Zona / Territorio
+                    </h3>
+                    <div id="chartArTerritory" class="w-full flex items-center justify-center"></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="user-check" class="w-4 h-4 text-emerald-400"></i> Cartera por Vendedor ($ USD)
+                    </h3>
+                    <div id="chartArSalesperson" class="w-full"></div>
+                </div>
+            </div>
+
+            <!-- TABLA DE CARTERA POR CLIENTE -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i data-lucide="credit-card" class="w-4 h-4 text-sky-400"></i> Detalle de Cartera y Cobranzas por Cliente
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Control de atraso máximo, límites de crédito y facturas por cobrar</p>
+                    </div>
+
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <select id="filterArAging" onchange="filterArTable()" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500">
+                            <option value="ALL">Todos los Estados</option>
+                            <option value="OVERDUE">🔴 Solo Cartera Vencida</option>
+                            <option value="CURRENT">🟢 Solo Cartera Al Día</option>
+                        </select>
+
+                        <input type="text" id="arSearchInput" oninput="filterArTable()" placeholder="Buscar cliente, vendedor, zona..." class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500 w-64">
+                        
+                        <button onclick="exportArCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar Cartera CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-400 bg-slate-950/40">
+                                <th class="p-3">Código</th>
+                                <th class="p-3">Nombre del Cliente</th>
+                                <th class="p-3">Zona</th>
+                                <th class="p-3">Vendedor</th>
+                                <th class="p-3 text-right">Saldo Total ($)</th>
+                                <th class="p-3 text-right">Al Día ($)</th>
+                                <th class="p-3 text-right">Vencido ($)</th>
+                                <th class="p-3 text-right">Límite Crédito</th>
+                                <th class="p-3 text-right">% Uso</th>
+                                <th class="p-3 text-right">Atraso Máx.</th>
+                                <th class="p-3 text-center">Estado Riesgo</th>
+                                <th class="p-3 text-center">Facturas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="arTableBody" class="divide-y divide-slate-800/60 font-mono"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL FACTURAS ABIERTAS POR CLIENTE (AR) -->
+    <div id="modalArInvoices" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <h3 id="modalArCustName" class="text-base font-bold text-white">Facturas Pendientes</h3>
+                    <p id="modalArCustId" class="text-xs text-slate-400 font-mono mt-0.5">Detalle</p>
+                </div>
+                <button onclick="closeModalAr()" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-4">
+                <div class="overflow-x-auto border border-slate-800 rounded-xl">
+                    <table class="w-full text-xs text-left">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-950/60 text-slate-400">
+                                <th class="p-2.5">Documento</th>
+                                <th class="p-2.5">Tipo</th>
+                                <th class="p-2.5">Emisión</th>
+                                <th class="p-2.5">Vencimiento</th>
+                                <th class="p-2.5 text-right">Monto Orig. ($)</th>
+                                <th class="p-2.5 text-right">Saldo Pendiente ($)</th>
+                                <th class="p-2.5 text-center">Atraso</th>
+                                <th class="p-2.5 text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalArTrxBody" class="divide-y divide-slate-800/50 font-mono"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FICHA 360° CLIENTE (VENTAS) -->
+    <div id="modal360" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <h3 id="modalCustName" class="text-base font-bold text-white">Nombre del Cliente</h3>
+                    <p id="modalCustId" class="text-xs text-slate-400 font-mono mt-0.5">ID Cliente</p>
+                </div>
+                <button onclick="closeModal360()" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-5">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                        <span class="text-[11px] text-slate-400">Total Comprado ($ USD)</span>
+                        <h4 id="modalSales" class="text-lg font-bold text-white mt-1">$0.00</h4>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                        <span class="text-[11px] text-slate-400">LTV (Utilidad Bruta $)</span>
+                        <h4 id="modalLTV" class="text-lg font-bold text-amber-400 mt-1">$0.00</h4>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                        <span class="text-[11px] text-slate-400">Total Pedidos</span>
+                        <h4 id="modalOrders" class="text-lg font-bold text-sky-400 mt-1">0</h4>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                        <span class="text-[11px] text-slate-400">Ticket Promedio (AOV)</span>
+                        <h4 id="modalAOV" class="text-lg font-bold text-emerald-400 mt-1">$0.00</h4>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
+                        <i data-lucide="history" class="w-3.5 h-3.5 text-sky-400"></i> Historial Reciente de Facturas y Devoluciones
+                    </h4>
+                    <div class="overflow-x-auto border border-slate-800 rounded-xl">
+                        <table class="w-full text-xs text-left">
+                            <thead>
+                                <tr class="border-b border-slate-800 bg-slate-950/60 text-slate-400">
+                                    <th class="p-2">Factura</th>
+                                    <th class="p-2">Fecha</th>
+                                    <th class="p-2">Tipo</th>
+                                    <th class="p-2">Artículo</th>
+                                    <th class="p-2 text-right">Cant.</th>
+                                    <th class="p-2 text-right">Venta ($)</th>
+                                    <th class="p-2 text-right">Margen ($)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modalTrxBody" class="divide-y divide-slate-800/50 font-mono"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

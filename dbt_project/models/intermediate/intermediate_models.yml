@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: int_sales_lines_enriched
+    description: "Líneas de venta enriquecidas con atributos de encabezado, cálculo de venta neta, margen bruto y signo de devolución"
+    columns:
+      - name: invoice_number
+        tests:
+          - not_null
+      - name: line_item_sequence
+        tests:
+          - not_null
+      - name: net_sales_amount
+        tests:
+          - not_null
+      - name: customer_id
+        tests:
+          - not_null
+
+  - name: int_customer_orders_summary
+    description: "Resumen histórico acumulado por cliente con cálculo de LTV, ticket promedio (AOV), frecuencia y estatus de Churn actual"
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+          - unique
+      - name: historical_ltv_gross_profit
+        tests:
+          - not_null
+      - name: current_churn_status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Active', 'Churned / Inactive', 'Never Purchased']
+
+  - name: int_customer_churn_ltv_monthly
+    description: "Matriz mensual de actividad de cliente para tracking de cohortes, Churn mensual y curva de LTV acumulada"
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+      - name: year_month_sk
+        tests:
+          - not_null
+      - name: is_churned_flag
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "name": "datawarehouse-grupo-ponce",
+  "cleanUrls": true,
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/dashboard_app/frontend/$1"
+    }
+  ]
+}

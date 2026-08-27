@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: "Dimensión conformada de Clientes con soporte SCD Tipo 2 e historial de atributos"
+    columns:
+      - name: customer_sk
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        tests:
+          - not_null
+
+  - name: dim_product
+    description: "Dimensión conformada de Artículos y Productos de Inventario"
+    columns:
+      - name: product_sk
+        tests:
+          - not_null
+          - unique
+      - name: item_number
+        tests:
+          - not_null
+
+  - name: dim_date
+    description: "Dimensión de Fecha con atributos de calendario gregoriano"
+    columns:
+      - name: date_sk
+        tests:
+          - not_null
+          - unique
+
+  - name: fact_sales
+    description: "Tabla de Hechos de Ventas Transaccionales (Granularidad: Línea de Factura/Devolución)"
+    columns:
+      - name: sales_fact_sk
+        tests:
+          - not_null
+          - unique
+      - name: customer_sk
+        tests:
+          - not_null
+      - name: product_sk
+        tests:
+          - not_null
+      - name: document_date_sk
+        tests:
+          - not_null
+
+  - name: fact_customer_monthly_snapshot
+    description: "Tabla de Hechos Periódica Mensual para seguimiento de Retención, Churn y LTV"
+    columns:
+      - name: snapshot_sk
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        tests:
+          - not_null
+      - name: year_month_sk
+        tests:
+          - not_null

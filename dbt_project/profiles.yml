@@ -1,0 +1,34 @@
+# Configuración de Conexión de Perfiles dbt para Grupo Ponce
+# Servidor de Base de Datos: localhost
+
+grupo_ponce_profile:
+  target: dev
+  outputs:
+    # ---------------------------------------------------------------------------
+    # Opción 1: Microsoft SQL Server (Entorno nativo de Microsoft Dynamics GP)
+    # ---------------------------------------------------------------------------
+    dev:
+      type: sqlserver
+      driver: 'ODBC Driver 17 for SQL Server'
+      server: 'localhost'
+      port: 1433
+      database: "{{ env_var('DBT_DATABASE', 'PB') }}"
+      schema: "{{ env_var('DBT_SCHEMA', 'dbo') }}"
+      user: "{{ env_var('DBT_USER', 'sa') }}"
+      password: "{{ env_var('DBT_PASSWORD', 'Br4s1l') }}"
+      trust_cert: true
+      threads: 4
+
+    # ---------------------------------------------------------------------------
+    # Opción 2: PostgreSQL (Data Warehouse / Mart analítico en localhost)
+    # ---------------------------------------------------------------------------
+    dev_postgres:
+      type: postgres
+      host: 'localhost'                      # Servidor local de BD
+      user: "{{ env_var('DBT_USER', 'postgres') }}"
+      password: "{{ env_var('DBT_PASSWORD', 'postgres') }}"
+      port: 5432
+      dbname: "{{ env_var('DBT_DATABASE', 'gp_dw_ponce') }}"
+      schema: "{{ env_var('DBT_SCHEMA', 'public') }}"
+      threads: 4
+      keepalives_idle: 0

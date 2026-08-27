@@ -1,0 +1,130 @@
+{
+  "expectation_suite_name": "customer_sales_data_mart_suite",
+  "meta": {
+    "great_expectations_version": "0.18.0",
+    "author": "Data Governance Specialist",
+    "description": "Suite integral de calidad de datos para el Data Mart de Clientes y Ventas de Grupo Ponce cubriendo las 7 dimensiones de Data Quality."
+  },
+  "expectations": [
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 1,
+        "max_value": 100000000
+      },
+      "meta": {
+        "dimension": "Completeness",
+        "notes": "Verifica que la tabla de hechos contenga registros."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "invoice_number"
+      },
+      "meta": {
+        "dimension": "Completeness",
+        "notes": "El número de factura (SOPNUMBE) nunca debe ser nulo."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "customer_id"
+      },
+      "meta": {
+        "dimension": "Completeness",
+        "notes": "El ID del cliente nunca debe ser nulo."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "document_date"
+      },
+      "meta": {
+        "dimension": "Completeness",
+        "notes": "La fecha del documento debe existir siempre."
+      }
+    },
+    {
+      "expectation_type": "expect_compound_columns_to_be_unique",
+      "kwargs": {
+        "column_list": ["invoice_number", "line_item_sequence", "component_sequence"]
+      },
+      "meta": {
+        "dimension": "Uniqueness",
+        "notes": "La clave compuesta de línea de factura debe ser estrictamente única."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "sop_type",
+        "value_set": [3, 4]
+      },
+      "meta": {
+        "dimension": "Validity",
+        "notes": "Solo se permiten facturas (3) y devoluciones (4) en el hecho de ventas analítico."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "unit_price",
+        "min_value": 0.0,
+        "allow_cross_type_comparisons": true
+      },
+      "meta": {
+        "dimension": "Accuracy",
+        "notes": "El precio unitario no puede ser negativo."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "unit_cost",
+        "min_value": 0.0,
+        "allow_cross_type_comparisons": true
+      },
+      "meta": {
+        "dimension": "Accuracy",
+        "notes": "El costo unitario no puede ser negativo."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "document_date",
+        "min_value": "2000-01-01",
+        "max_value": "2099-12-31"
+      },
+      "meta": {
+        "dimension": "Timeliness",
+        "notes": "Fechas deben estar en un rango temporal válido de operación comercial."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "is_voided",
+        "value_set": [0]
+      },
+      "meta": {
+        "dimension": "Integrity",
+        "notes": "No deben filtrarse transacciones anuladas al Data Mart analítico."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "is_churned_flag",
+        "value_set": [0, 1]
+      },
+      "meta": {
+        "dimension": "Consistency",
+        "notes": "El flag de Churn mensual solo puede ser binario (0 o 1)."
+      }
+    }
+  ]
+}

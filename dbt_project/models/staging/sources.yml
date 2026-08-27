@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: dynamics_gp
+    database: PB
+    schema: dbo
+    description: "Tablas del sistema transaccional Microsoft Dynamics GP de Grupo Ponce (Base PB)"
+    tables:
+      - name: RM00101
+        description: "Maestro de Clientes (Receivables Management Customer Master)"
+      - name: RM00201
+        description: "Clases de Clientes (Customer Class Master)"
+      - name: RM00301
+        description: "Maestro de Vendedores (Salesperson Master)"
+      - name: RM00303
+        description: "Maestro de Territorios de Venta (Sales Territory Master)"
+      - name: SOP30200
+        description: "Encabezados Históricos de Ventas (Sales Transaction History Header)"
+      - name: SOP30300
+        description: "Líneas Históricas de Ventas (Sales Transaction History Line)"
+      - name: IV00101
+        description: "Maestro de Artículos de Inventario (Item Master)"
+
+  - name: dynamics_system
+    database: DYNAMICS
+    schema: dbo
+    description: "Base del Sistema Dynamics GP con tablas maestras de monedas y configuración"
+    tables:
+      - name: MC00100
+        description: "Histórico de Tasas Cambiarias Multimoneda (USD-VENTAS)"

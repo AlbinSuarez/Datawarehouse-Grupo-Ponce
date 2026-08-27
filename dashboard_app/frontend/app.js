@@ -1,13 +1,14 @@
 // Dashboard Web Dinámico - Grupo Ponce
 // Control de Estado Global y Gráficos ApexCharts
 
-let chartInstances = {};
-let globalCustomers = [];
-let globalInventoryItems = [];
-let globalArCustomers = [];
-let metaFilterData = {};
+var chartInstances = {};
+var globalCustomers = [];
+var globalInventoryItems = [];
+var globalArCustomers = [];
+var metaFilterData = {};
+var isLocalEnvironment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
-// Acceso seguro al Snapshot precargado para despliegues estáticos (Vercel / Cloud)
+// Helper para obtener datos del snapshot sincronizado
 function getDWData(key, fallback = null) {
     if (window.DW_SNAPSHOT && window.DW_SNAPSHOT[key]) {
         return window.DW_SNAPSHOT[key];
@@ -60,34 +61,33 @@ function switchTab(tabId) {
     }, 100);
 }
 
-// Cargar opciones de filtros desde la API o Snapshot
+// Cargar opciones de filtros
 async function initFilterOptions() {
-    let meta = null;
-    try {
-        const res = await fetch("/api/meta/filters");
-        if (res.ok) {
-            meta = await res.json();
-        }
-    } catch (err) {
-        console.warn("Live API /api/meta/filters no disponible, usando snapshot.");
+    let meta = getDWData("meta_filters", {
+        territories: ["CAPITAL-CENTRO", "CENTRO-OCCIDENTE", "INSULAR", "NACIONAL-CUENTAS CLAVE", "OCCIDENTE", "OFICINA", "ORIENTE", "WEB"],
+        customer_classes: ["CAD.FARMAC", "CAD.SUPERM", "DISTRIB.", "DROGUERIAS", "FARMAC.IND", "GENERAL"],
+        salespeople: ["ASESOR COMERCIAL", "DIRECTOR VENTAS", "EJECUTIVO CUENTAS"],
+        inventory_categories: ["MATERIA PRIMA", "PRODUCTO TERMINADO", "MATERIAL EMPAQUE"],
+        latest_rate: 787.52,
+        latest_rate_date: "2026-08-26",
+        exchange_table: "USD-VENTAS (MC00100)",
+        database_target: isLocalEnvironment ? "localhost (PB + DYNAMICS)" : "Data Warehouse Grupo Ponce (Producción)"
+    });
+
+    if (isLocalEnvironment) {
+        try {
+            const res = await fetch("/api/meta/filters");
+            if (res.ok) {
+                const liveMeta = await res.json();
+                if (liveMeta && liveMeta.territories) meta = liveMeta;
+            }
+        } catch (e) {}
     }
 
-    if (!meta) {
-        meta = getDWData("meta_filters", {
-            territories: [],
-            customer_classes: [],
-            salespeople: [],
-            inventory_categories: [],
-            latest_rate: 787.52,
-            latest_rate_date: "2026-08-26",
-            exchange_table: "USD-VENTAS (MC00100)",
-            database_target: "Enterprise Data Warehouse (SQL Server: PB + DYNAMICS)"
-        });
-    }
     metaFilterData = meta;
 
     const lblServer = document.getElementById("lblServer");
-    if (lblServer) lblServer.textContent = meta.database_target || "localhost (PB + DYNAMICS)";
+    if (lblServer) lblServer.textContent = isLocalEnvironment ? "localhost (SQL Server)" : "Data Warehouse Grupo Ponce (Cloud Sync)";
 
     const selTerr = document.getElementById("filterTerritory");
     if (selTerr) {
@@ -172,24 +172,26 @@ async function triggerDatabaseReload() {
         if (window.lucide) lucide.createIcons();
     }
 
-    try {
-        const res = await fetch("/api/meta/reload", { method: "POST" });
-        if (res.ok) {
-            const info = await res.json();
-            console.log("Base de datos sincronizada en tiempo real:", info);
-        }
-        await initFilterOptions();
-    } catch (err) {
-        console.error("Error al sincronizar con la base de datos:", err);
-    } finally {
-        if (btn) {
-            btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar BD`;
-            btn.disabled = false;
-            if (window.lucide) lucide.createIcons();
+    if (isLocalEnvironment) {
+        try {
+            const res = await fetch("/api/meta/reload", { method: "POST" });
+            if (res.ok) {
+                const info = await res.json();
+                console.log("Base de datos sincronizada en tiempo real:", info);
+            }
+        } catch (err) {
+            console.error("Error al sincronizar con la base de datos:", err);
         }
     }
 
+    await initFilterOptions();
     refreshAllData();
+
+    if (btn) {
+        btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar BD`;
+        btn.disabled = false;
+        if (window.lucide) lucide.createIcons();
+    }
 }
 
 // Recargar datos al cambiar cualquier filtro
@@ -219,7 +221,9 @@ function getFilterParams() {
 // Renderizador Helper de ApexCharts
 function renderChart(elementId, options) {
     if (chartInstances[elementId]) {
-        chartInstances[elementId].destroy();
+        try {
+            chartInstances[elementId].destroy();
+        } catch(e) {}
     }
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -234,28 +238,26 @@ function renderChart(elementId, options) {
 // =========================================================================
 async function fetchVentasData() {
     const qs = getFilterParams();
-    let kpis = null, trends = null, territories = null, categories = null;
+    let kpis = getDWData("kpis_summary", { net_sales: 27084929.54, gross_margin_pct: 76.27, gross_profit: 20658421.10, churn_rate_pct: 5.46, churned_customers_count: 10, average_customer_ltv: 112887.55, total_customers_in_scope: 183 });
+    let trends = getDWData("sales_trends", []);
+    let territories = getDWData("sales_territory", []);
+    let categories = getDWData("sales_category", []);
 
-    try {
-        const [kpiRes, trendRes, terrRes, catRes] = await Promise.all([
-            fetch(`/api/kpis/summary?${qs}`),
-            fetch(`/api/sales/trends?${qs}`),
-            fetch(`/api/sales/by-territory?${qs}`),
-            fetch(`/api/sales/by-category?${qs}`)
-        ]);
+    if (isLocalEnvironment) {
+        try {
+            const [kpiRes, trendRes, terrRes, catRes] = await Promise.all([
+                fetch(`/api/kpis/summary?${qs}`),
+                fetch(`/api/sales/trends?${qs}`),
+                fetch(`/api/sales/by-territory?${qs}`),
+                fetch(`/api/sales/by-category?${qs}`)
+            ]);
 
-        if (kpiRes.ok) kpis = await kpiRes.json();
-        if (trendRes.ok) trends = await trendRes.json();
-        if (terrRes.ok) territories = await terrRes.json();
-        if (catRes.ok) categories = await catRes.json();
-    } catch (err) {
-        console.warn("Live API Ventas no disponible, cargando snapshot:", err);
+            if (kpiRes.ok) kpis = await kpiRes.json();
+            if (trendRes.ok) trends = await trendRes.json();
+            if (terrRes.ok) territories = await terrRes.json();
+            if (catRes.ok) categories = await catRes.json();
+        } catch (err) {}
     }
-
-    if (!kpis) kpis = getDWData("kpis_summary", { net_sales: 27084929.54, gross_margin_pct: 76.27, gross_profit: 20658421.10, churn_rate_pct: 5.46, churned_customers_count: 10, average_customer_ltv: 112887.55, total_customers_in_scope: 183 });
-    if (!trends) trends = getDWData("sales_trends", []);
-    if (!territories) territories = getDWData("sales_territory", []);
-    if (!categories) categories = getDWData("sales_category", []);
 
     // Actualizar KPIs Scorecards
     const netSales = kpis.net_sales || kpis.total_net_sales_usd || 0;
@@ -350,15 +352,14 @@ async function fetchVentasData() {
 // =========================================================================
 async function fetchChurnData() {
     const qs = getFilterParams();
-    let data = null;
-    try {
-        const res = await fetch(`/api/churn/analysis?${qs}`);
-        if (res.ok) data = await res.json();
-    } catch (err) {
-        console.warn("Live API Churn no disponible, cargando snapshot:", err);
-    }
+    let data = getDWData("churn_analysis", { churn_history: [], cohort_matrix: [] });
 
-    if (!data) data = getDWData("churn_analysis", { churn_history: [], cohort_matrix: [] });
+    if (isLocalEnvironment) {
+        try {
+            const res = await fetch(`/api/churn/analysis?${qs}`);
+            if (res.ok) data = await res.json();
+        } catch (err) {}
+    }
 
     const periods = (data.churn_history || []).map(c => c.period);
     const churnRates = (data.churn_history || []).map(c => c.churn_rate_pct);
@@ -429,15 +430,14 @@ function getCohortColor(val) {
 // =========================================================================
 async function fetchLtvData() {
     const qs = getFilterParams();
-    let data = null;
-    try {
-        const res = await fetch(`/api/customers/rfm-ltv?${qs}`);
-        if (res.ok) data = await res.json();
-    } catch (err) {
-        console.warn("Live API LTV no disponible, cargando snapshot:", err);
-    }
+    let data = getDWData("rfm_ltv", { rfm_summary: [], customers: [] });
 
-    if (!data) data = getDWData("rfm_ltv", { rfm_summary: [], customers: [] });
+    if (isLocalEnvironment) {
+        try {
+            const res = await fetch(`/api/customers/rfm-ltv?${qs}`);
+            if (res.ok) data = await res.json();
+        } catch (err) {}
+    }
 
     globalCustomers = data.customers || [];
 
@@ -557,11 +557,9 @@ function filterCustomerTable() {
 }
 
 function exportCustomersCSV() {
-    let csv = "Codigo_Cliente,Nombre_Cliente,Clase,Zona,Segmento_RFM,Total_Pedidos,Ventas_USD,LTV_USD,Recencia_Dias
-";
+    let csv = "Codigo_Cliente,Nombre_Cliente,Clase,Zona,Segmento_RFM,Total_Pedidos,Ventas_USD,LTV_USD,Recencia_Dias\n";
     globalCustomers.forEach(c => {
-        csv += `"${c.customer_id}","${c.customer_name}","${c.customer_class_id}","${c.territory_name}","${c.rfm_segment}",${c.total_orders},${c.total_net_sales},${c.customer_ltv_gross_profit},${c.recency_days}
-`;
+        csv += `"${c.customer_id}","${c.customer_name}","${c.customer_class_id}","${c.territory_name}","${c.rfm_segment}",${c.total_orders},${c.total_net_sales},${c.customer_ltv_gross_profit},${c.recency_days}\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -575,10 +573,12 @@ function exportCustomersCSV() {
 async function openModal360(customerId) {
     try {
         let data = null;
-        try {
-            const res = await fetch(`/api/customers/${customerId}/360`);
-            if (res.ok) data = await res.json();
-        } catch (err) {}
+        if (isLocalEnvironment) {
+            try {
+                const res = await fetch(`/api/customers/${customerId}/360`);
+                if (res.ok) data = await res.json();
+            } catch (err) {}
+        }
 
         if (!data) {
             const cust = globalCustomers.find(c => c.customer_id === customerId);
@@ -637,31 +637,29 @@ function closeModal360() {
 // =========================================================================
 async function fetchInventoryData() {
     const skuType = document.getElementById("filterSkuType") ? document.getElementById("filterSkuType").value : "ALL";
-    let kpis = null, locations = null, health = null, categories = null, items = null;
+    let kpis = getDWData("inventory_kpis", { total_valuation_usd: 750516.17, total_units_on_hand: 842010, inventory_turnover: 4.8, annual_cogs_usd: 6426508.44, days_inventory_outstanding: 76.0, stockout_items_count: 32, at_risk_items_count: 58 });
+    let locations = getDWData("inventory_locations", []);
+    let health = getDWData("inventory_health", []);
+    let categories = getDWData("inventory_categories", []);
+    let items = getDWData("inventory_items", []);
 
-    try {
-        const [kpiRes, locRes, healthRes, catRes, itemsRes] = await Promise.all([
-            fetch(`/api/inventory/kpis?sku_type=${skuType}`),
-            fetch(`/api/inventory/by-location?sku_type=${skuType}`),
-            fetch(`/api/inventory/health-summary?sku_type=${skuType}`),
-            fetch(`/api/inventory/by-category?sku_type=${skuType}`),
-            fetch(`/api/inventory/items?sku_type=${skuType}`)
-        ]);
+    if (isLocalEnvironment) {
+        try {
+            const [kpiRes, locRes, healthRes, catRes, itemsRes] = await Promise.all([
+                fetch(`/api/inventory/kpis?sku_type=${skuType}`),
+                fetch(`/api/inventory/by-location?sku_type=${skuType}`),
+                fetch(`/api/inventory/health-summary?sku_type=${skuType}`),
+                fetch(`/api/inventory/by-category?sku_type=${skuType}`),
+                fetch(`/api/inventory/items?sku_type=${skuType}`)
+            ]);
 
-        if (kpiRes.ok) kpis = await kpiRes.json();
-        if (locRes.ok) locations = await locRes.json();
-        if (healthRes.ok) health = await healthRes.json();
-        if (catRes.ok) categories = await catRes.json();
-        if (itemsRes.ok) items = await itemsRes.json();
-    } catch (err) {
-        console.warn("Live API Inventarios no disponible, cargando snapshot:", err);
+            if (kpiRes.ok) kpis = await kpiRes.json();
+            if (locRes.ok) locations = await locRes.json();
+            if (healthRes.ok) health = await healthRes.json();
+            if (catRes.ok) categories = await catRes.json();
+            if (itemsRes.ok) items = await itemsRes.json();
+        } catch (err) {}
     }
-
-    if (!kpis) kpis = getDWData("inventory_kpis", { total_valuation_usd: 12450820.40, total_units_on_hand: 842010, inventory_turnover: 4.8, annual_cogs_usd: 59763937.92, days_inventory_outstanding: 76.0, stockout_items_count: 32, at_risk_items_count: 58 });
-    if (!locations) locations = getDWData("inventory_locations", []);
-    if (!health) health = getDWData("inventory_health", []);
-    if (!categories) categories = getDWData("inventory_categories", []);
-    if (!items) items = getDWData("inventory_items", []);
 
     globalInventoryItems = items;
 
@@ -804,11 +802,9 @@ function filterInventoryTable() {
 }
 
 function exportInventoryCSV() {
-    let csv = "Codigo_Articulo,Descripcion,Tipo_SKU,Categoria,Stock_Fisico,Comprometido,Disponible,En_Transito,Costo_Unitario_USD,Valoracion_USD,Rotacion_Turnover,DIO_Dias,Estado_Salud
-";
+    let csv = "Codigo_Articulo,Descripcion,Tipo_SKU,Categoria,Stock_Fisico,Comprometido,Disponible,En_Transito,Costo_Unitario_USD,Valoracion_USD,Rotacion_Turnover,DIO_Dias,Estado_Salud\n";
     globalInventoryItems.forEach(i => {
-        csv += `"${i.item_number}","${i.item_description}","${i.sku_type}","${i.category}",${i.qty_on_hand},${i.qty_allocated},${i.qty_available},${i.qty_on_order},${i.unit_cost_usd},${i.total_valuation_usd},${i.inventory_turnover},${i.dio},"${i.health_status}"
-`;
+        csv += `"${i.item_number}","${i.item_description}","${i.sku_type}","${i.category}",${i.qty_on_hand},${i.qty_allocated},${i.qty_available},${i.qty_on_order},${i.unit_cost_usd},${i.total_valuation_usd},${i.inventory_turnover},${i.dio},"${i.health_status}"\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -823,31 +819,29 @@ function exportInventoryCSV() {
 // =========================================================================
 async function fetchReceivablesData() {
     const qs = getFilterParams();
-    let kpis = null, aging = null, territories = null, salespeople = null, customers = null;
+    let kpis = getDWData("ar_kpis", { total_ar_balance_usd: 827294.55, open_documents_count: 2767, dso_days: 42.5, sales_90d_usd: 7300000.0, total_overdue_usd: 480200.0, delinquency_rate_pct: 13.9, total_current_usd: 2970000.0, customers_with_debt_count: 142 });
+    let aging = getDWData("ar_aging", []);
+    let territories = getDWData("ar_territory", []);
+    let salespeople = getDWData("ar_salesperson", []);
+    let customers = getDWData("ar_customers", []);
 
-    try {
-        const [kpiRes, agingRes, terrRes, spRes, custsRes] = await Promise.all([
-            fetch(`/api/ar/kpis?${qs}`),
-            fetch(`/api/ar/aging-summary?${qs}`),
-            fetch(`/api/ar/by-territory?${qs}`),
-            fetch(`/api/ar/by-salesperson?${qs}`),
-            fetch(`/api/ar/customers?${qs}`)
-        ]);
+    if (isLocalEnvironment) {
+        try {
+            const [kpiRes, agingRes, terrRes, spRes, custsRes] = await Promise.all([
+                fetch(`/api/ar/kpis?${qs}`),
+                fetch(`/api/ar/aging-summary?${qs}`),
+                fetch(`/api/ar/by-territory?${qs}`),
+                fetch(`/api/ar/by-salesperson?${qs}`),
+                fetch(`/api/ar/customers?${qs}`)
+            ]);
 
-        if (kpiRes.ok) kpis = await kpiRes.json();
-        if (agingRes.ok) aging = await agingRes.json();
-        if (terrRes.ok) territories = await terrRes.json();
-        if (spRes.ok) salespeople = await spRes.json();
-        if (custsRes.ok) customers = await custsRes.json();
-    } catch (err) {
-        console.warn("Live API AR no disponible, cargando snapshot:", err);
+            if (kpiRes.ok) kpis = await kpiRes.json();
+            if (agingRes.ok) aging = await agingRes.json();
+            if (terrRes.ok) territories = await terrRes.json();
+            if (spRes.ok) salespeople = await spRes.json();
+            if (custsRes.ok) customers = await custsRes.json();
+        } catch (err) {}
     }
-
-    if (!kpis) kpis = getDWData("ar_kpis", { total_ar_balance_usd: 3450200.0, open_documents_count: 2767, dso_days: 42.5, sales_90d_usd: 7300000.0, total_overdue_usd: 480200.0, delinquency_rate_pct: 13.9, total_current_usd: 2970000.0, customers_with_debt_count: 142 });
-    if (!aging) aging = getDWData("ar_aging", []);
-    if (!territories) territories = getDWData("ar_territory", []);
-    if (!salespeople) salespeople = getDWData("ar_salesperson", []);
-    if (!customers) customers = getDWData("ar_customers", []);
 
     globalArCustomers = customers;
 
@@ -960,7 +954,7 @@ function renderArTable(customers) {
             <td class="p-3 text-right ${(c.max_overdue_days || 0) > 0 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${overdueDisplay}</td>
             <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${riskBadge}">${c.risk_status}</span></td>
             <td class="p-3 text-center">
-                <button onclick="openModalAr('${c.customer_id}', '${(c.customer_name || '').replace(/'/g, "\'")}')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 mx-auto">
+                <button onclick="openModalAr('${c.customer_id}', '${(c.customer_name || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 mx-auto">
                     <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Ver (${c.docs_count || 0})
                 </button>
             </td>
@@ -992,11 +986,9 @@ function filterArTable() {
 }
 
 function exportArCSV() {
-    let csv = "Codigo_Cliente,Nombre_Cliente,Zona,Vendedor,Saldo_Total_USD,Saldo_Al_Dia_USD,Saldo_Vencido_USD,Limite_Credito_USD,Utilizacion_Pct,Max_Atraso_Dias,Estado_Riesgo,Total_Documentos
-";
+    let csv = "Codigo_Cliente,Nombre_Cliente,Zona,Vendedor,Saldo_Total_USD,Saldo_Al_Dia_USD,Saldo_Vencido_USD,Limite_Credito_USD,Utilizacion_Pct,Max_Atraso_Dias,Estado_Riesgo,Total_Documentos\n";
     globalArCustomers.forEach(c => {
-        csv += `"${c.customer_id}","${c.customer_name}","${c.territory_name}","${c.salesperson_name}",${c.total_debt_usd},${c.current_debt_usd},${c.overdue_debt_usd},${c.credit_limit_usd},${c.credit_utilization_pct},${c.max_overdue_days},"${c.risk_status}",${c.docs_count}
-`;
+        csv += `"${c.customer_id}","${c.customer_name}","${c.territory_name}","${c.salesperson_name}",${c.total_debt_usd},${c.current_debt_usd},${c.overdue_debt_usd},${c.credit_limit_usd},${c.credit_utilization_pct},${c.max_overdue_days},"${c.risk_status}",${c.docs_count}\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -1010,10 +1002,12 @@ function exportArCSV() {
 async function openModalAr(customerId, customerName) {
     try {
         let invoices = null;
-        try {
-            const res = await fetch(`/api/ar/customer/${customerId}/invoices`);
-            if (res.ok) invoices = await res.json();
-        } catch (err) {}
+        if (isLocalEnvironment) {
+            try {
+                const res = await fetch(`/api/ar/customer/${customerId}/invoices`);
+                if (res.ok) invoices = await res.json();
+            } catch (err) {}
+        }
 
         if (!invoices) {
             invoices = [];
